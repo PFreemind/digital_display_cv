@@ -97,7 +97,7 @@ def getDigit(input_image, x1, x2, y1, y2):
     best_match_index = np.argmax(matches)
 
     # You can set a threshold to determine if a match is valid
-    threshold = 0.5
+    threshold = 0.55
  #   print(matches[best_match_index])
     if matches[best_match_index] >= threshold:
         recognized_digit = best_match_index
