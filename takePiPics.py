@@ -10,16 +10,19 @@ today = str(datetime.date.today())
 parser = argparse.ArgumentParser(description='read still captured by RPi camera')
 #parser.add_argument('-o', '--output', help='output directory',type=str, default="/net/cms26/cms26r0/pmfreeman/Pi_captures/" )
 parser.add_argument('-d', '--delay', help='delay time between captures',type=int, default = 1)
+parser.add_argument('-r', '--rsync', action ='store_true', help = 'bool for running rsync (no rsyncing if not set)' )
+parser.add_argument('-o', '--output', help='output directory',type=str, default="~/Pi_captures/" )
 args = parser.parse_args()
 delay = args.delay
+output  = args.output
+rsync = args.rsync
 #filename = "currentReadings"+today+".csv"
-dir = "~/Pi_captures/"
-IDfile  = "~/dirpi/metadata/ID.txt"
+IDfile  = "/home/dirpi19/dirpi/metadata/ID.txt"
 try:
     with open(IDfile, 'r') as file:
         first_line = file.readline()
         if first_line:
-            ID = str(first_line)
+            ID = str(first_line.split("\n")[0])
             print("the dirpi ID is : "+ID)
         else:
             print("The ID file is empty.")
@@ -30,19 +33,19 @@ except Exception as e:
 
 #f = open(filename, 'w')
 while True:
-    if os.path.exists("~/Desktop/.stop"):
+    if os.path.exists("~/digital_display_cv/.stop"):
         print("stop file detected, stopping takePiPics.py")
-        os.remove("~/Desktop/.stop")
+        os.remove("~/digital_display_cv/.stop")
         break
     stamp = int(time.time())
-    pic = dir+"image_"+str(stamp)+".jpg"
-    cmd = "raspistill -n -t 1  -roi 0.25,0.25,0.5,0.5 -o " + pic
+    pic = output+"image_"+str(stamp)+".jpg"
+    cmd = "raspistill -n -t 1 -rot 180 -roi 0.25,0.25,0.5,0.5 -o " + pic
     print (cmd)
     os.system(cmd)
-    print("hello")
-    copyCmd = "rsync "+dir+"*.jpg pmfreeman@tau.physics.ucsb.edu:/net/cms26/cms26r0/pmfreeman/Pi_captures/dirpi"+str(ID)+"/"# --remove-source-files
-    print(copyCmd)
-    os.system(copyCmd)
+    copyCmd = "rsync "+output+"*.jpg pmfreeman@tau.physics.ucsb.edu:/net/cms26/cms26r0/pmfreeman/Pi_captures/dirpi"+str(ID)+"/ --remove-source-files"
+    if rsync:
+        print(copyCmd)
+        os.system(copyCmd)
     if delay > 0:
         time.sleep(delay)
     #current = -99999#getReading(pic)
