@@ -125,6 +125,7 @@ if __name__ == "__main__":
     parser.add_argument('-y2', '--y2', help='crop limit (TR)',type=int, default = 999)
     parser.add_argument('-y3', '--y3', help='crop limit (BR)',type=int, default = 1206)
     parser.add_argument('-y4', '--y4', help='crop limit (BL)',type=int, default = 1355)
+    parser.add_argument('-d', '--dirpi', help='crop limit (BL)',type=int, default = 19)
     parser.add_argument('-s', '--show',  action ='store_true', help = 'bool for showing images as they are processeed' )
     parser.add_argument('-a', '--angle', help='angle of rotation correction in degrees', type=float, default = 0)
     parser.add_argument('-i', '--input', help='input directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi19/" )
@@ -141,12 +142,9 @@ if __name__ == "__main__":
     y3 = args.y3
     y4 = args.y4
     show = args.show
+    dirpi = args.dirpi
     dir = args.input
-    outDir ="/Users/patfreeman/Desktop/Pi_captures/dirpi19/cropped/"
-
-
-   
-
+    outDir ="/Users/patfreeman/Desktop/Pi_captures/dirpi"+str(dirpi)+"/cropped/"
     # Define the coordinates of the ROI (top-left and bottom-right)
     roi_x1, roi_y1, roi_x2, roi_y2 = 0,0,4000,4000#1000, 500, 2400, 1400  # Adjust these coordinates as needed
 
@@ -181,12 +179,18 @@ if __name__ == "__main__":
         # Convert the ROI to grayscale for better OCR accuracy
         gray_roi = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         cv2.imshow('gray', gray_roi)
+   
+
 
         # ret,thresh = cv2.threshold(gray_roi,70,255,0)
         rect = np.zeros((4, 2), dtype = "float32")
         rect = np.array([[x1,y1], [x2,y2], [x3,y3], [x4,y4] ])
         warped = four_point_transform(gray_roi, rect)
         cv2.imshow('warped', warped)
+        if dirpi == 17:
+            warped =  cv2.rotate(warped, cv2.ROTATE_180)#roate 180 deg since image upside-down
+        cv2.imshow('rotated', warped)
+
         '''
         if iFrame >  frameOfCameraBump:
             xBump = 30
@@ -205,6 +209,8 @@ if __name__ == "__main__":
         unsharp_image = cv2.addWeighted(warped, 2.0, gaussian_3, -1.0, 0)
         cv2.imshow('sharpened', unsharp_image)
         binary = cv2.adaptiveThreshold( unsharp_image,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,31, -5)
+        if dirpi == 17:
+                binary = cv2.adaptiveThreshold( unsharp_image,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,31, -2)
         cnts = cv2.findContours(binary.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         cnts = sorted(cnts, key=cv2.contourArea, reverse=True)

@@ -33,9 +33,9 @@ except Exception as e:
 
 #f = open(filename, 'w')
 while True:
-    if os.path.exists("~/digital_display_cv/.stop"):
+    if os.path.exists("/home/dirpi"+str(ID)+"/digital_display_cv/.stop"):
         print("stop file detected, stopping takePiPics.py")
-        os.remove("~/digital_display_cv/.stop")
+        os.remove("/home/dirpi"+str(ID)+"/digital_display_cv/.stop")
         break
     stamp = int(time.time())
     pic = output+"image_"+str(stamp)+".jpg"
