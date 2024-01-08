@@ -133,7 +133,7 @@ def getDigit(input_image, x1, x2, y1, y2):
     best_match_index = np.argmax(matches)
 
     # You can set a threshold to determine if a match is valid
-    threshold = 0.45
+    threshold = 0.4
  #   print(matches[best_match_index])
     if matches[best_match_index] >= threshold:
         recognized_digit = best_match_index
@@ -162,10 +162,10 @@ if __name__ == "__main__":
     parser.add_argument('-y2', '--y2', help='crop limit (TR)',type=int, default = 999)
     parser.add_argument('-y3', '--y3', help='crop limit (BR)',type=int, default = 1206)
     parser.add_argument('-y4', '--y4', help='crop limit (BL)',type=int, default = 1355)
-    parser.add_argument('-d', '--dirpi', help='crop limit (BL)',type=int, default = 19)
+    parser.add_argument('-d', '--dirpi', help='crop limit (BL)',type=int, default = 17)
     parser.add_argument('-s', '--show',  action ='store_true', help = 'bool for showing images as they are processeed' )
     parser.add_argument('-a', '--angle', help='angle of rotation correction in degrees', type=float, default = 0)
-    parser.add_argument('-i', '--input', help='input directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi19/" )
+    parser.add_argument('-i', '--input', help='input directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi17/" )
     parser.add_argument('-t', '--throttle', type = int, default ='100',  help='throttle the video reading, 1/throttle frames of the video are processed'  )
 
     args = parser.parse_args()
@@ -187,7 +187,6 @@ if __name__ == "__main__":
 
     # Initialize the video capture object
 
-    frameOfCameraBump = 38250
 
     # Get the frame rate of the video
     # Calculate the frame index to start from
@@ -225,13 +224,7 @@ if __name__ == "__main__":
             if dirpi == 17:
                 warped =  cv2.rotate(warped, cv2.ROTATE_180)#roate 180 deg since image upside-down
             cv2.imshow('rotated', warped)
-            '''
-            if iFrame >  frameOfCameraBump:
-                xBump = 30
-                yBump = -20
-                smidge = 8
-                rect = np.array([[24 + xBump - smidge, 230 + yBump], [1253 + xBump, 50 + yBump - smidge], [1227+ xBump, 449 + yBump - smidge], [11 + xBump, 569 + yBump] ])
-            '''
+       
             #could add noise reduction with fastNlMeansDenoisingColored ()
             #also, smarter edge detection?
            # foo,binary=cv2.threshold(warped, 160, 255, cv2.THRESH_BINARY)
@@ -266,21 +259,12 @@ if __name__ == "__main__":
             y0shift = 0
             x0shift = 0
             y1shift = 0
-
             
-            if iFrame >  frameOfCameraBump:
-                xBump = 30
-                yBump = 30
-                chars.append( binary[ offset + yBump -y0shift :h - offset*2 - y0shift+ yBump, 0+ offset + xBump- x0shift :int(w/4 - 60 ) + xBump  + x0shift ] )
-                chars.append( binary[ offset+ yBump - y1shift:h - offset*2+ yBump - y1shift, int(w/4)+ offset + xBump :int(w/2) - offset*2 + xBump ] )
-                chars.append( binary[ offset+ yBump:h - offset*2+ yBump, int(w/2)+ offset + xBump :int(3*w/4) -offset*2 + xBump ] )
-                chars.append( binary[ offset+ yBump:h - offset*2+ yBump, int(3*w/4)+ offset + xBump :w - offset*2 + xBump ] )
-            else:
-                chars.append( binary[ offset:h - offset*2, 0+ offset :int(w/4)  ] )
-                chars.append( binary[ offset:h - offset*2, int(w/4)+ offset:int(w/2) - offset*2] )
-                chars.append( binary[ offset:h - offset*2, int(w/2)+ offset:int(3*w/4) -offset*2] )
-                chars.append( binary[ offset:h - offset*2, int(3*w/4)+ offset:w - offset*2] )
-           
+            chars.append( binary[ offset:h - offset*2, 0+ offset :int(w/4)  ] )
+            chars.append( binary[ offset:h - offset*2, int(w/4)+ offset:int(w/2) - offset*2] )
+            chars.append( binary[ offset:h - offset*2, int(w/2)+ offset:int(3*w/4) -offset*2] )
+            chars.append( binary[ offset:h - offset*2, int(3*w/4)+ offset:w - offset*2] )
+       
             shift = 4
             '''
             for j in range( min(4, len(cnts)) ):
@@ -292,7 +276,7 @@ if __name__ == "__main__":
         
             config = ' --psm 7 -c tessedit_char_whitelist=0123456789 '
             reading =""
-            noneFlag = 0
+            noneFlag = 1
             for char in chars:
                 i+=1
             #    extracted_text = pytesseract.image_to_string(char, config=config)
@@ -376,4 +360,5 @@ if __name__ == "__main__":
 
     # Release the video capture object and close all OpenCV windows
     cv2.destroyAllWindows()
+
 
