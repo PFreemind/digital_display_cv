@@ -237,7 +237,6 @@ if __name__ == "__main__":
            # foo,binary=cv2.threshold(warped, 160, 255, cv2.THRESH_BINARY)
             blurred = cv2.GaussianBlur(warped, (5, 5), 0)
             edged = cv2.Canny(blurred, 50, 200, 255)
-            
 
             gaussian_3 = cv2.GaussianBlur(warped, (51, 51), 4.0)
             unsharp_image = cv2.addWeighted(warped, 2.0, gaussian_3, -1.0, 0)
