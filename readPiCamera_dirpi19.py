@@ -162,10 +162,11 @@ if __name__ == "__main__":
     parser.add_argument('-y2', '--y2', help='crop limit (TR)',type=int, default = 999)
     parser.add_argument('-y3', '--y3', help='crop limit (BR)',type=int, default = 1206)
     parser.add_argument('-y4', '--y4', help='crop limit (BL)',type=int, default = 1355)
-    parser.add_argument('-d', '--dirpi', help='crop limit (BL)',type=int, default = 19)
+    parser.add_argument('-d', '--dirpi', help='ID number of dirpi device',type=int, default = 19)
     parser.add_argument('-s', '--show',  action ='store_true', help = 'bool for showing images as they are processeed' )
     parser.add_argument('-a', '--angle', help='angle of rotation correction in degrees', type=float, default = 0)
     parser.add_argument('-i', '--input', help='input directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi19/" )
+    parser.add_argument('-o', '--output', help='output directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi19/cropped/" )
     parser.add_argument('-t', '--throttle', type = int, default ='100',  help='throttle the video reading, 1/throttle frames of the video are processed'  )
 
     args = parser.parse_args()
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     show = args.show
     dirpi = args.dirpi
     dir = args.input
-    outDir ="/Users/patfreeman/Desktop/Pi_captures/dirpi"+str(dirpi)+"/cropped/"
+    outDir = args.output
     # Define the coordinates of the ROI (top-left and bottom-right)
     roi_x1, roi_y1, roi_x2, roi_y2 = 0,0,4000,4000#1000, 500, 2400, 1400  # Adjust these coordinates as needed
 

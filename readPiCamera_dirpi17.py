@@ -5,23 +5,55 @@ import numpy as np
 import imutils
 import ssocr
 import glob
+import time
 
 
 class DVMimage:
-    def __init__(self, imagepath, x1=0, x2=0, y1=0, y2=0, croppedDir="/Users/patfreeman/Desktop/Pi_captures/dirpi17/cropped/", chars=[]):
+    def __init__(self, imagepath, x1=0, x2=0, x3=0, x4=0, y1=0, y2=0, y3=0, y4=0, croppedDir="/Users/patfreeman/Desktop/Pi_captures/dirpi17/cropped/", color="g", chars=[]):
         self.x1 = x1
         self.x2 = x2
         self.y1 = y1
         self.y2 = y2
+        self.x3 = x3
+        self.x4 = x4
+        self.y3 = y3
+        self.y4 = y4
         self.chars = chars
         self.data =  []#cv2.imread(imagepath)
         self.time = -1#int( imagepath.split("/")[-1].split("_")[-1].split(".")[0] ) #timestamp of the event
         self.binary = []
         self.imagepath = imagepath
         self.croppedDir = croppedDir
-    
+        self.color = color
+        if self.color.lower() == "g" or self.color.lower() == "green":
+            color="green"
+        if self.color.lower() == "r" or self.color.lower() == "red":
+            color="red"
+        if self.color.lower() == "y" or self.color.lower() == "yellow":
+            color="yellow"
+        
+        if self.color.lower() == "red":
+            self.x1 = 833
+            self.x2 = 1877
+            self.x3 = 1918
+            self.x4 = 850
+            self.y1 = 980
+            self.y2 = 907
+            self.y3 = 1269
+            self.y4 = 1325
+        
+        if self.color.lower() == "yellow":
+            self.x1 = 324
+            self.x2 = 2103
+            self.x3 = 2086
+            self.x4 = 338
+            self.y1 = 1036
+            self.y2 = 1030
+            self.y3 = 1723
+            self.y4 = 1724
+        
     def getImage(self):
-        print("DEBUG:"+ self.imagepath)
+      #  print("DEBUG:"+ self.imagepath)
         try:
             self.data = cv2.imread(self.imagepath)
         except:
@@ -38,15 +70,17 @@ class DVMimage:
         x2 = self.x2
         y1 = self.y1
         y2 = self.y2
-        # roi_frame = frame[roi_y1:roi_y2, roi_x1:roi_x2]
-        # Convert the ROI to grayscale for better OCR accuracy
+        x3 = self.x3
+        x4 = self.x4
+        y3 = self.y3
+        y4 = self.y4
+        # Convert to grayscale for better OCR accuracy
         gray_roi = cv2.cvtColor(self.data, cv2.COLOR_BGR2GRAY)
         cv2.imshow('gray', gray_roi)
 
-        # ret,thresh = cv2.threshold(gray_roi,70,255,0)
-        rect = np.zeros((4, 2), dtype = "float32")
+        #cropping and rotation
         rect = np.array([[x1,y1], [x2,y2], [x3,y3], [x4,y4] ])
-        warped = gray_roi[y1:y3, x4:x2 ] # four_point_transform(gray_roi, rect)
+        warped = four_point_transform(gray_roi, rect)#gray_roi[y1:y3, x4:x2 ] # four_point_transform(gray_roi, rect)
         cv2.imshow('warped', warped)
         #if dirpi == 17:
           #  warped =  cv2.rotate(warped)#roate 180 deg since image upside-down
@@ -62,8 +96,10 @@ class DVMimage:
         unsharp_image = cv2.addWeighted(warped, 2.0, gaussian_3, -1.0, 0)
         cv2.imshow('sharpened', unsharp_image)
         binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 27)
+        if self.color.lower() == "red" or self.color.lower() == "r":
+            binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 18)
         self.binary = binary
-        print (self.croppedDir+"/PiCropped_"+str(self.time)+".jpg")
+     #   print (self.croppedDir+"/PiCropped_"+str(self.time)+".jpg")
         cv2.imwrite(self.croppedDir+"/PiCropped_"+str(self.time)+".jpg", binary)
         cv2.imshow("binary", binary)
 
@@ -131,12 +167,21 @@ class DVMimage:
         x0shift = 0
         y1shift = 0
         self.chars = []
-        self.chars.append( self.binary[ offset:h - offset*2, 0+ offset :int(w/4)  ] )
-        self.chars.append( self.binary[ offset:h - offset*2, int(w/4)+ offset:int(w/2) - offset*2] )
-        self.chars.append( self.binary[ offset:h - offset*2, int(w/2)+ offset:int(3*w/4) -offset*2] )
-        self.chars.append( self.binary[ offset:h - offset*2, int(3*w/4)+ offset:w - offset*2] )
-        cv2.imshow("char0", self.chars[0])
-
+        if self.color.lower() == "g" or self.color.lower() == "green":
+            nparts = 4
+            offset = 15
+        elif self.color.lower() == "r" or self.color.lower() == "red":
+            nparts = 5
+           
+        decimal = None
+        for i in range(nparts):
+            self.chars.append( self.binary[ 0:h, int ((i*w)/nparts) : int( ((i+1) * w) /nparts) ] )
+     
+        if self.color.lower() == "g" or self.color.lower() == "green":
+            self.chars[1] = self.binary[ 0:h, int ((1*w)/nparts) + offset : int( ((1+1) * w) /nparts) + offset*2 ]
+            self.chars[2] = self.binary[ 0:h, int ((2*w)/nparts) + offset*2 : int( ((2+1) * w) /nparts) + offset ]
+          #  decimal = self.binary[ 0:h, int ((1*w)/nparts) :  int ((1*w)/nparts) + 100 ]
+           # decimal = getChar(decimal)
         #crop the individual chars and parse them
         i = -1
         reading = ""
@@ -145,17 +190,18 @@ class DVMimage:
         for char in self.chars:
             i+=1
         #    extracted_text = pytesseract.image_to_string(char, config=config)
-            char = getChar(char)
+            char, hasDecimal = getChar(char)
+            if self.color == "red":
+                char = getChar(char)#,1000)
          #   cv2.imshow("char", char)
             xx1=0
             yy1=0
             xx2 = char.shape[1]
             yy2 = char.shape[0]
             extracted_text = getDigit(char, xx1, xx2, yy1, yy2)
-            if i < 4:
-                reading+=str(extracted_text)
-            if i == 0:
+            if hasDecimal:
                 reading+="."
+            reading+=str(extracted_text)
             cv2.imshow('char'+str(i), char )
        #     readings.append(reading )
             if extracted_text is None:
@@ -180,8 +226,7 @@ class DVMimage:
             #f.write("\n")
             output.write(str(self.time)+", ")
             output.write(reading+"\n")
-            reading = float(reading)
-            readings.append(reading )
+      
     #check for the decimal
         
 # import the necessary packages
@@ -241,7 +286,7 @@ def four_point_transform(image, pts):
     return warped
 
 
-def getChar(img, minArea = 1000): #crop a character exactly around its borders for aligned comparison
+def getChar(img, minArea = 10000): #crop a character exactly around its borders for aligned comparison
     cnts = cv2.findContours(cv2.bitwise_not( img.copy()), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
@@ -252,9 +297,28 @@ def getChar(img, minArea = 1000): #crop a character exactly around its borders f
     xmin = 1e5
     xmax = -1
     ymax = -1
+    hasDecimal=False
     for cnt in cnts:
-        if cv2.contourArea(cnt) < minArea : #stop once the contours are too small
+        area = cv2.contourArea(cnt)
+        if area < minArea : #stop once the contours are too small
+            #check if this first contour below threshold is the decimal
+            [x0,y0,w0,h0 ] = cv2.boundingRect(cnt)
+          #  print(x0, y0, w0, h0, img.shape)
+          #check for the decimal
+            if w0 > h0*0.8 and w0 *0.8 < h0: #is square
+              #  print("square")
+                if w0 < img.shape[1] * 0.2 and w0 > img.shape[1] * 0.003  and h0 < img.shape[0] * 0.2 and h0 > img.shape[0] * 0.003: #small (but not too small) relative to image
+                #    print("small")
+                 #   print("area ", area, " minarea", minArea )
+                    if x0 < img.shape[1] * 0.3 and w0 > img.shape[0] * 0.7: # in lower left corner
+                        hasDecimal=True
+                        print("corner")
+
+
             break
+     #   print( cv2.contourArea(cnt) )
+     #   [x0,y0,w0,h0 ] = cv2.boundingRect(cnt)
+       # print(x0, y0, w0, h0, img.shape)
         [x,y,w,h ] = cv2.boundingRect(cnt)
         if x < xmin: xmin = x
         if y < ymin: ymin = y
@@ -273,10 +337,14 @@ def getChar(img, minArea = 1000): #crop a character exactly around its borders f
         cnts = imutils.grab_contours(cnts)
         cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
         cv2.drawContours(char, cnts, -1, (128, 0, 0), 4)
+        
     else:
-        print("could not extract char (likely due to contour area threshold), returning orignal image")
+      #  print("could not extract char (likely due to contour area threshold), returning orignal image")
         char = img
-    return char
+    if not char.any():
+       # print("could not extract char, [] returned from contour search, returning orignal image")
+        char = img
+    return char, hasDecimal
     
 def getDigit(input_image, x1, x2, y1, y2):
     # Load the 7-segment character templates for digits 0-9
@@ -294,12 +362,18 @@ def getDigit(input_image, x1, x2, y1, y2):
     for i in range (10):
         im = cv2.imread("digit_templates/dirpi17/"+str(i)+".jpg" ,   cv2.IMREAD_GRAYSCALE )
         binary = cv2.adaptiveThreshold( im, 255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 27)
-        binary = getChar(binary)
+        binary, _ = getChar(binary)
         templates.append(binary)
      #   print( int( (w*i) /10.),"  ", int( ((i+1) *w) /10.))
         #templates.append( inverted_binary[  40:h-25,  max(0, int( (step*float(i) + intercept)))  : int( (step*float(i+1) + intercept) ) ] ) #int( ((w+1) *i) /10.) ] )# int( (w*i) /10.) : int( ((w+1)*i )/10) ]  )
     #    print(templates[i])
         cv2.imshow('digit'+str(i), templates[i])
+    minus = cv2.imread("digit_templates/dirpi17/-.jpg" ,   cv2.IMREAD_GRAYSCALE)
+    #binary = cv2.adaptiveThreshold( im, 255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 27)
+    minus, _ = getChar(minus, 10)
+    cv2.imshow('minus', minus)
+    templates.append(minus)
+
     # Load your input image
 
     # Initialize a list to store the matching results
@@ -326,6 +400,8 @@ def getDigit(input_image, x1, x2, y1, y2):
  #   print(matches[best_match_index])
     if matches[best_match_index] >= threshold:
         recognized_digit = best_match_index
+        if best_match_index == 10:
+            recognized_digit = "-"
       #  print ("Look at me, I did it!")
     else:
         recognized_digit = None
@@ -343,18 +419,20 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='read still captured by RPi camera')
-    parser.add_argument('-x1', '--x1', help='crop limit for 4 digits (TL)',type=int, default = 506)
-    parser.add_argument('-x2', '--x2', help='crop limit (TR)',type=int, default = 2009)
-    parser.add_argument('-x3', '--x3', help='crop limit (BR)',type=int, default = 2026)
-    parser.add_argument('-x4', '--x4', help='crop limit (BL)',type=int, default = 521)
-    parser.add_argument('-y1', '--y1', help='crop limit (TL)',type=int, default = 862)
-    parser.add_argument('-y2', '--y2', help='crop limit (TR)',type=int, default = 861)
-    parser.add_argument('-y3', '--y3', help='crop limit (BR)',type=int, default = 1491)
-    parser.add_argument('-y4', '--y4', help='crop limit (BL)',type=int, default = 1460)
-    parser.add_argument('-d', '--dirpi', help='crop limit (BL)',type=int, default = 17)
+    parser.add_argument('-x1', '--x1', help='crop limit for 4 digits (TL)',type=int, default = 444)# 930)
+    parser.add_argument('-x2', '--x2', help='crop limit (TR)',type=int, default = 2277)#1660)
+    parser.add_argument('-x3', '--x3', help='crop limit (BR)',type=int, default = 2257)#1657)
+    parser.add_argument('-x4', '--x4', help='crop limit (BL)',type=int, default = 443)#918)
+    parser.add_argument('-y1', '--y1', help='crop limit (TL)',type=int, default = 1146)#1148)
+    parser.add_argument('-y2', '--y2', help='crop limit (TR)',type=int, default = 1078)#999)
+    parser.add_argument('-y3', '--y3', help='crop limit (BR)',type=int, default = 1846)#1206)
+    parser.add_argument('-y4', '--y4', help='crop limit (BL)',type=int, default = 1808)#1355)
+    parser.add_argument('-d', '--dirpi', help='number of dirpi device',type=int, default = 17)
     parser.add_argument('-s', '--show',  action ='store_true', help = 'bool for showing images as they are processeed' )
     parser.add_argument('-a', '--angle', help='angle of rotation correction in degrees', type=float, default = 0)
     parser.add_argument('-i', '--input', help='input directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi17/" )
+    parser.add_argument('-o', '--output', help='output directory',type=str, default="/Users/patfreeman/Desktop/Pi_captures/dirpi17/cropped/" )
+    parser.add_argument('-c', '--color', help='color of DVM (as proxy for model)',type=str, default="green" )
     parser.add_argument('-t', '--throttle', type = int, default ='100',  help='throttle the video reading, 1/throttle frames of the video are processed'  )
 
     args = parser.parse_args()
@@ -370,7 +448,8 @@ if __name__ == "__main__":
     show = args.show
     dirpi = args.dirpi
     dir = args.input
-    outDir ="/Users/patfreeman/Desktop/Pi_captures/dirpi"+str(dirpi)+"/cropped/"
+    outDir = args.output
+    color = args.color
     # Define the coordinates of the ROI (top-left and bottom-right)
     roi_x1, roi_y1, roi_x2, roi_y2 = 0,0,4000,4000#1000, 500, 2400, 1400  # Adjust these coordinates as needed
 
@@ -383,7 +462,7 @@ if __name__ == "__main__":
     # Set the frame index to the calculated starting frame
     iFrame = 0
     readings = []
-    filename = "dirpiCameraReadings_dirpi"+str(dirpi)+".txt"
+    filename = "dirpiCameraReadings_dirpi" + str(dirpi) + "_" + color+"_" + str(time.time()) + ".txt"
     files = glob.glob(dir+"*.jpg")
     with open(filename, 'w') as output:
         for f in files:
@@ -391,12 +470,12 @@ if __name__ == "__main__":
                 print("reading image number "+str(iFrame))
                 print("reading image file "+str(f))
         #### now as a class
-            dvm = DVMimage(f, x1,x2, y1, y2 )
+            dvm = DVMimage(f, x1,x2,x3,x4, y1, y2, y3, y4,  outDir, color )
             dvm.getImage()
             dvm.getTime()
           #  dvm.getWindow()
             if iFrame==0:
-                templateImage = cv2.imread("/Users/patfreeman/Desktop/Pi_captures/dirpi17/image_1704327745.jpg")
+                templateImage = cv2.imread(f)
      #           print(templateImage.shape)
             dvm.alignImages(templateImage)
             dvm.preprocess()
