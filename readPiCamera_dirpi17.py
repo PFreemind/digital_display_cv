@@ -7,6 +7,21 @@ import ssocr
 import glob
 import time
 
+def normalize_brightness_with_grayscale(image, target_brightness=100):
+    # Convert the image to grayscale
+    grayscale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Calculate the average grayscale brightness
+    average_brightness = np.mean(grayscale_image)
+
+    # Calculate the scaling factor based on the target brightness and the average brightness
+    scaling_factor = target_brightness / average_brightness
+
+    # Apply the scaling factor to the original image
+    normalized_image = cv2.convertScaleAbs(image, alpha=scaling_factor, beta=0)
+
+    return normalized_image
+
 
 class DVMimage:
     def __init__(self, imagepath, x1=0, x2=0, x3=0, x4=0, y1=0, y2=0, y3=0, y4=0, croppedDir="/Users/patfreeman/Desktop/Pi_captures/dirpi17/cropped/", color="g", chars=[]):
@@ -24,15 +39,15 @@ class DVMimage:
         self.binary = []
         self.imagepath = imagepath
         self.croppedDir = croppedDir
-        self.color = color
-        if self.color.lower() == "g" or self.color.lower() == "green":
+        if color.lower() == "g" or color.lower() == "green":
             color="green"
-        if self.color.lower() == "r" or self.color.lower() == "red":
+        if color.lower() == "r" or color.lower() == "red":
             color="red"
-        if self.color.lower() == "y" or self.color.lower() == "yellow":
+        if color.lower() == "y" or color.lower() == "yellow":
             color="yellow"
+        self.color = color
         
-        if self.color.lower() == "red":
+        if self.color == "red":
             self.x1 = 833
             self.x2 = 1877
             self.x3 = 1918
@@ -42,7 +57,7 @@ class DVMimage:
             self.y3 = 1269
             self.y4 = 1325
         
-        if self.color.lower() == "yellow":
+        if self.color == "yellow":
             self.x1 = 324
             self.x2 = 2103
             self.x3 = 2086
@@ -95,9 +110,12 @@ class DVMimage:
         gaussian_3 = cv2.GaussianBlur(warped, (101, 101), 4.0)
         unsharp_image = cv2.addWeighted(warped, 2.0, gaussian_3, -1.0, 0)
         cv2.imshow('sharpened', unsharp_image)
+        #warped = normalize_brightness_with_grayscale(warped)
         binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 27)
-        if self.color.lower() == "red" or self.color.lower() == "r":
-            binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 18)
+        if self.color == "red":
+            binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 16)
+        if self.color == "yellow":
+            binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,201, 0)
         self.binary = binary
      #   print (self.croppedDir+"/PiCropped_"+str(self.time)+".jpg")
         cv2.imwrite(self.croppedDir+"/PiCropped_"+str(self.time)+".jpg", binary)
@@ -167,21 +185,34 @@ class DVMimage:
         x0shift = 0
         y1shift = 0
         self.chars = []
-        if self.color.lower() == "g" or self.color.lower() == "green":
+        nparts = 4
+        if self.color == "green":
             nparts = 4
             offset = 15
-        elif self.color.lower() == "r" or self.color.lower() == "red":
+        elif self.color == "red":
             nparts = 5
-           
+            offset = 40
+        elif self.color == "yellow":
+            nparts = 4
+            
         decimal = None
         for i in range(nparts):
             self.chars.append( self.binary[ 0:h, int ((i*w)/nparts) : int( ((i+1) * w) /nparts) ] )
-     
-        if self.color.lower() == "g" or self.color.lower() == "green":
+        if self.color == "green":
             self.chars[1] = self.binary[ 0:h, int ((1*w)/nparts) + offset : int( ((1+1) * w) /nparts) + offset*2 ]
             self.chars[2] = self.binary[ 0:h, int ((2*w)/nparts) + offset*2 : int( ((2+1) * w) /nparts) + offset ]
+      
+        if self.color == "red":
+            self.chars = []
+            self.chars.append(  self.binary[ 0:h, int (0)  : int(2.*w/9.) ] )
+            self.chars.append(  self.binary[ 0:h, int (2.*w/9.)  : int(3.*w/9.) ] )
+            self.chars.append(  self.binary[ 0:h, int (3.*w/9.)  : int(5.*w/9.) ] )
+            self.chars.append(  self.binary[ 0:h, int (5.*w/9.)  : int(7.*w/9.) ] )
+            self.chars.append(  self.binary[ 0:h, int (7.*w/9.)  : int(9.*w/9.) ] )
+            print(self.chars)
           #  decimal = self.binary[ 0:h, int ((1*w)/nparts) :  int ((1*w)/nparts) + 100 ]
            # decimal = getChar(decimal)
+        
         #crop the individual chars and parse them
         i = -1
         reading = ""
@@ -192,10 +223,17 @@ class DVMimage:
         #    extracted_text = pytesseract.image_to_string(char, config=config)
             char, hasDecimal = getChar(char)
             if self.color == "red":
-                char = getChar(char)#,1000)
+                char, hasDecimal = getChar(char, 500)
          #   cv2.imshow("char", char)
+         
+         
+         
+         
+         
             xx1=0
             yy1=0
+            print ("char ", char)
+            print("shape ", char.shape)
             xx2 = char.shape[1]
             yy2 = char.shape[0]
             extracted_text = getDigit(char, xx1, xx2, yy1, yy2)
@@ -326,7 +364,7 @@ def getChar(img, minArea = 10000): #crop a character exactly around its borders 
         if y + h > ymax: ymax = y + h
     
   #  cv2.drawContours(img, cnts, -1, (128, 0, 0), 4)
-    cv2.imshow('charContours', img )
+ #   cv2.imshow('charContours', img )
     
     #new char coordinates are xmin, ymin, xmax, ymax
     # return the cropped char
@@ -341,8 +379,8 @@ def getChar(img, minArea = 10000): #crop a character exactly around its borders 
     else:
       #  print("could not extract char (likely due to contour area threshold), returning orignal image")
         char = img
-    if not char.any():
-       # print("could not extract char, [] returned from contour search, returning orignal image")
+    if char.shape[1] == 0 or char.shape[0] == 0 :
+        print("could not extract char, [] returned from contour search, returning orignal image")
         char = img
     return char, hasDecimal
     
@@ -452,14 +490,6 @@ if __name__ == "__main__":
     color = args.color
     # Define the coordinates of the ROI (top-left and bottom-right)
     roi_x1, roi_y1, roi_x2, roi_y2 = 0,0,4000,4000#1000, 500, 2400, 1400  # Adjust these coordinates as needed
-
-    # Initialize the video capture object
-
-
-    # Get the frame rate of the video
-    # Calculate the frame index to start from
-
-    # Set the frame index to the calculated starting frame
     iFrame = 0
     readings = []
     filename = "dirpiCameraReadings_dirpi" + str(dirpi) + "_" + color+"_" + str(time.time()) + ".txt"
@@ -484,166 +514,11 @@ if __name__ == "__main__":
                 input()
                 if cv2.waitKey(1000) & 0xFF == ord('q'):
                     break
+
             iFrame+=1
             
             ####
-            '''
-            frame = cv2.imread(f)
-            cv2.imshow("original", frame)
-            if iFrame % throttle != 0:
-                iFrame+=1
-                continue
-         
-            # Read a frame from the video
-            # Check if we have reached the end of the video
-            #image pre-processing
-            # Extract the ROI from the frame
-            time = int( f.split("/")[-1].split("_")[-1].split(".")[0] ) #float(iFrame)/float(frame_rate) + skip_start_time
-           # roi_frame = frame[roi_y1:roi_y2, roi_x1:roi_x2]
-            # Convert the ROI to grayscale for better OCR accuracy
-            gray_roi = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            cv2.imshow('gray', gray_roi)
-
-            # ret,thresh = cv2.threshold(gray_roi,70,255,0)
-            rect = np.zeros((4, 2), dtype = "float32")
-            rect = np.array([[x1,y1], [x2,y2], [x3,y3], [x4,y4] ])
-            warped = gray_roi[y1:y3, x4:x2 ] # four_point_transform(gray_roi, rect)
-            cv2.imshow('warped', warped)
-            if dirpi == 17:
-                warped =  cv2.rotate(warped, cv2.ROTATE_180)#roate 180 deg since image upside-down
-            cv2.imshow('rotated', warped)
-       
-            #could add noise reduction with fastNlMeansDenoisingColored ()
-            #also, smarter edge detection?
-           # foo,binary=cv2.threshold(warped, 160, 255, cv2.THRESH_BINARY)
-            blurred = cv2.GaussianBlur(warped, (5, 5), 0)
-            edged = cv2.Canny(blurred, 50, 200, 255)
-            
-
-            gaussian_3 = cv2.GaussianBlur(warped, (51, 51), 4.0)
-            unsharp_image = cv2.addWeighted(warped, 2.0, gaussian_3, -1.0, 0)
-            cv2.imshow('sharpened', unsharp_image)
-            binary = cv2.adaptiveThreshold( warped,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY,31, -4)
-            if dirpi == 17:
-                    binary = cv2.adaptiveThreshold( unsharp_image,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,31, -2)
-            cnts = cv2.findContours(binary.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-            cnts = imutils.grab_contours(cnts)
-            cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
-            cv2.drawContours(binary, cnts, -1, (128, 0, 0), 4)
-            cv2.imshow('binary', binary)#
-            cv2.imwrite(outDir+"/PiCropped_"+str(time)+".jpg", binary)
-            # only keep the largest contours, remove the little blobs
-            # get alignment better, using contours?
-            # use joe's code
-        #    cv2.imshow('foo',binary)
-            #plot.imshow(gray_roi)
-            # Use Tesseract OCR to extract text from the ROI
-    #        extracted_text = pytesseract.image_to_string(gray_roi)
-        #split the frame into 4 characters
-            
-            h, w = binary.shape
-            chars = []
-            offset = 0
-            y0shift = 0
-            x0shift = 0
-            y1shift = 0
-            
-            chars.append( binary[ offset:h - offset*2, 0+ offset :int(w/4)  ] )
-            chars.append( binary[ offset:h - offset*2, int(w/4)+ offset:int(w/2) - offset*2] )
-            chars.append( binary[ offset:h - offset*2, int(w/2)+ offset:int(3*w/4) -offset*2] )
-            chars.append( binary[ offset:h - offset*2, int(3*w/4)+ offset:w - offset*2] )
-       
-            shift = 4
-         
-            for j in range( min(4, len(cnts)) ):
-                [x,y,w,l ] = cv2.boundingRect(cnts[j])
-                
-                chars.append( binary[ y  : y + l , x  : x + w ] )
-            i=-1
-        
-            config = ' --psm 7 -c tessedit_char_whitelist=0123456789 '
-            reading =""
-            noneFlag = 1
-            for char in chars:
-                i+=1
-            #    extracted_text = pytesseract.image_to_string(char, config=config)
-                char = getChar(char)
-                xx1=0
-                yy1=0
-                xx2 = char.shape[1]
-                yy2 = char.shape[0]
-                extracted_text = getDigit(char, xx1, xx2, yy1, yy2)
-                if i < 4:
-                    reading+=str(extracted_text)
-                if i == 0:
-                    reading+="."
-                cv2.imshow('char'+str(i), char )
-                readings.append(reading )
-                if extracted_text is None:
-                    noneFlag = 1
-                    continue
-           #     reading = ssocr.main( cv2.bitwise_not(binary) )
-
-              #  cv2.imshow('char'+str(i), char )
-                cv2.putText(char, str(extracted_text), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0))
-                cv2.imshow('char'+str(i), char )
-
-                cv2.putText(binary, str(reading), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0))
-                cv2.imshow('binary', binary )
-      #      extracted_text = pytesseract.image_to_string(binary, config=config)
-
-            # You can add additional processing here to filter and extract numbers from 'extracted_text'
-            if noneFlag == 0:
-               # f.write(str(time)+", ")
-                #f.write("test\n")
-                #f.write(reading+"\n")
-                #f.write("\n")
-                output.write(str(time)+", ")
-                output.write(reading+"\n")
-                reading = float(reading)
-                readings.append(reading )
-            # Display the extracted text on the frame
-            
-         #   foo,gray_roi=cv2.threshold(roi_frame, 127, 255, cv2.THRESH_BINARY)
-            # Display the frame with extracted text
-            #cv2.accumulateWeighted(dst, binary, 0.1)
-            h=binary.shape[0]
-            w=binary.shape[1]
-            dst=np.zeros([h, w], dtype=np.uint8)
-         
-            alpha =0.2
-            for i in range(h):
-                for j in range(w):
-                    dst[i,j] = dst[i,j] * (1-alpha) + binary[i,j] * (alpha)
-                    
-           
-            if show:
-                input()
-                if cv2.waitKey(100) & 0xFF == ord('q'):
-                    break
-            foo,out=cv2.threshold(binary, 1, 255, cv2.THRESH_BINARY)
-           # out= cv2.adaptiveThreshold(dst,160,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
-            #dst = dst*(1-alpha) + binary*alpha
-           # extracted_text = pytesseract.image_to_string(out, config=config)
-            #cv2.putText(out, extracted_text, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 10, (0, 255, 0))
-         #   cv2.imshow('Frame', out)
-            # Break the loop if 'q' is pressed
-           
-           
-            
-            ##hmmmm
-            #break image into 4 parts, check each letter individually
-            #can write something specific for 7-segment letters
-            #calculate mean in 7 roi, get pieces, match to mapping
-            #id bad matches
-            #1 =[0,1,1,0,0,0,0]
-            #2=[1,1,0,1,1,0,1]
-            #3=[1,1,1,1,0,0,1]
-            #etc
-            #really, same as the easrlier comment... removing short contours would help tho
-            # can parse for numbers via contours
-            #then check each number with nasty 7-segment explicit defintions. that's a decent amount of development...
-            '''
+          
 
     # Release the video capture object and close all OpenCV windows
     cv2.destroyAllWindows()
